@@ -11,6 +11,9 @@ from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 from celluloid import Camera
 
+import pysindy as ps
+from sklearn import linear_model
+
 from utils import *
 
 
@@ -42,9 +45,9 @@ def plot_time_series(timeseries, threshold=15):
         timeseries = timeseries.T
     if r > threshold:
         fig, axes = plt.subplots(threshold, 1, figsize=(10, 10))
-        for i, ax in zip(range(threshold-1), axes):
+        for i, ax in zip(range(threshold - 1), axes):
             ax.plot(timeseries[:, i], alpha=0.6, lw=1, label=str(i))
-        axes[int(threshold-1)].plot(timeseries[:, -1], alpha=0.6, lw=1, label='r')
+        axes[int(threshold - 1)].plot(timeseries[:, -1], alpha=0.6, lw=1, label='r')
     else:
         fig, axes = plt.subplots(r, 1, figsize=(10, 10))
         for i, ax in enumerate(axes):
@@ -60,7 +63,8 @@ def calc_probability_distribution(timeseries, n_bins=10):
 
 
 def Gauss(x, a, x0, sigma):
-    return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
+    return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+
 
 def fit_gauss(timeseries, n_bins):
     xpoints, prob = calc_probability_distribution(timeseries, n_bins)
@@ -98,10 +102,10 @@ def rank_forcing_component(timeseries):
             vals[i] = [i, 0]
             continue
 
-        print("V"+str(i)+"<", np.min(real_x[idx_intercepts]), "V"+str(i)+">", np.max(real_x[idx_intercepts]))
+        print("V" + str(i) + "<", np.min(real_x[idx_intercepts]), "V" + str(i) + ">", np.max(real_x[idx_intercepts]))
         proportion_extreme_vals = np.sum([(timeseries[:, i] < np.min(real_x[idx_intercepts])) |
                                           (timeseries[:, i] > np.max(real_x[idx_intercepts]))]
-                                         )/timeseries.shape[0]
+                                         ) / timeseries.shape[0]
         vals[i] = [i, proportion_extreme_vals]
     return vals
 
@@ -177,8 +181,8 @@ if __name__ == '__main__':
     component_score = rank_forcing_component(Vtilde)
     print(component_score)
 
-    fig, axes = plt.subplots(np.sum(component_score.T[-1]>=0))
-    for i, ax in zip(component_score.T[0][component_score.T[-1]>=0].astype(int), axes):
+    fig, axes = plt.subplots(np.sum(component_score.T[-1] >= 0))
+    for i, ax in zip(component_score.T[0][component_score.T[-1] >= 0].astype(int), axes):
         real_x, real_y = calc_probability_distribution(Vtilde[:, i], n_bins=10)
         gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
 
@@ -209,3 +213,33 @@ if __name__ == '__main__':
     ax2.scatter(extremes, np.repeat(0, len(extremes[0])), s=2, c='r', label='crit')
     ax2.legend()
 
+    # fit Koopman operator
+    # model = ps.SINDy()
+    # model.fit(Vtilde[:1000, :-1], t=.01)
+    # model.print()
+    # linear regression:
+    reg = linear_model.LinearRegression()
+    reg.fit(Vtilde[:10, :-1], dVtilde_dt[:10, :-1])
+    A = reg.coef_
+    fig, ax = plt.subplots()
+    ax = sns.heatmap(A, center=0)
+
+    dVtilde_dt_pred = reg.predict(Vtilde[10:, :-1])
+
+    fig, ax = plt.subplots()
+    ax.plot(dVtilde_dt_pred[:, 0], alpha=0.6, c='k', linestyle='--', label="pred")
+    ax.plot(dVtilde_dt[10:, 0], alpha=0.6, lw=1, label="true")
+    ax.legend()
+
+    # runge-kutta integration
+    n = Vtilde[1000:].shape[0]
+    y0 = Vtilde[1000-1][:-1]
+    y = np.zeros((n, len(y0)))
+    dt = 0.01
+    y[0] = y0
+    for i in range(n - 1):
+        y[i + 1] = y[i] + (dt) * dVtilde_dt[i]
+
+    fig, ax = plt.subplots()
+    ax.plot(y, alpha=0.6, lw=1, label="pred")
+    ax.legend()
