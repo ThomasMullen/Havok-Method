@@ -10,6 +10,7 @@ from scipy.optimize import curve_fit
 from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 from celluloid import Camera
+from matplotlib import animation
 
 import pysindy as ps
 from sklearn import linear_model
@@ -38,76 +39,6 @@ def lorenz_system(current_state, t):
 def generate_time_steps(start_time=0, end_time=100, dt=100):
     time_points = np.linspace(start_time, end_time, end_time * dt)
     return time_points
-
-
-def plot_time_series(timeseries, threshold=15):
-    if timeseries.shape[0] < timeseries.shape[1]:
-        timeseries = timeseries.T
-    if r > threshold:
-        fig, axes = plt.subplots(threshold, 1, figsize=(10, 10))
-        for i, ax in zip(range(threshold - 1), axes):
-            ax.plot(timeseries[:, i], alpha=0.6, lw=1, label=str(i))
-        axes[int(threshold - 1)].plot(timeseries[:, -1], alpha=0.6, lw=1, label='r')
-    else:
-        fig, axes = plt.subplots(r, 1, figsize=(10, 10))
-        for i, ax in enumerate(axes):
-            ax.plot(timeseries[:, i], alpha=0.6, lw=1, label=str(i))
-    return
-
-
-def calc_probability_distribution(timeseries, n_bins=10):
-    counts, edges = np.histogram(timeseries, bins=n_bins)
-    xpoints = edges[1:] + ((edges[1:] - edges[0:-1]) / 2)
-    prob = counts / np.sum(counts)
-    return xpoints, prob
-
-
-def Gauss(x, a, x0, sigma):
-    return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
-
-
-def fit_gauss(timeseries, n_bins):
-    xpoints, prob = calc_probability_distribution(timeseries, n_bins)
-
-    # seed initial gaussian parameters
-    mean = sum(xpoints * prob) / sum(prob)
-    sigma = np.sqrt(sum(prob * (xpoints - mean) ** 2) / sum(prob))
-
-    # optimise the coefficients
-    popt, pcov = curve_fit(Gauss, xpoints, prob, p0=[max(prob), mean, sigma])
-    xpt = np.linspace(xpoints[0], xpoints[-1], 10000)
-
-    return xpt, popt
-
-
-def rank_forcing_component(timeseries):
-    if timeseries.shape[0] < timeseries.shape[1]:
-        timeseries = timeseries.T
-
-    vals = np.zeros((timeseries.shape[-1], 2))
-    for i in range(timeseries.shape[-1]):
-        real_x, real_y = calc_probability_distribution(timeseries[:, i], n_bins=10)
-        try:
-            gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
-            idx_intercepts = np.argsort(np.abs(real_y - Gauss(real_x, *gauss_y)))[1:3]
-        except:
-            # fail to fit gaussian
-            print("failed with component", i)
-            # label with -1
-            vals[i] = [i, -1]
-            continue
-
-        # label timeseries which lack extreme tails
-        if np.std(real_y - Gauss(real_x, *gauss_y)) > 0.001:
-            vals[i] = [i, 0]
-            continue
-
-        print("V" + str(i) + "<", np.min(real_x[idx_intercepts]), "V" + str(i) + ">", np.max(real_x[idx_intercepts]))
-        proportion_extreme_vals = np.sum([(timeseries[:, i] < np.min(real_x[idx_intercepts])) |
-                                          (timeseries[:, i] > np.max(real_x[idx_intercepts]))]
-                                         ) / timeseries.shape[0]
-        vals[i] = [i, proportion_extreme_vals]
-    return vals
 
 
 if __name__ == '__main__':
@@ -150,17 +81,17 @@ if __name__ == '__main__':
     Stilde = S[:r, :r]
     Vtilde = Vh.conj().T[:, :r]
 
-    # # plot embedded attractor
-    # fig = plt.figure()
-    # ax = plt.axes(projection="3d")
-    # camera = Camera(fig)
-    #
-    # for i in range(1, len(x), 25):
-    #     ax.plot(Vtilde.T[0][:i], Vtilde.T[1][:i], Vtilde.T[2][:i], lw=0.2, color='blue')
-    #     camera.snap()
-    #
-    # animation = camera.animate()
-    # # animation.save('embedded_lorenz.gif', writer = 'imagemagick')
+    # plot embedded attractor
+    fig = plt.figure()
+    ax = plt.axes(projection="3d")
+    camera = Camera(fig)
+
+    for i in range(1, len(x), 25):
+        ax.plot(Vtilde.T[0][:i], Vtilde.T[1][:i], Vtilde.T[2][:i], lw=0.2, color='blue')
+        camera.snap()
+
+    animation = camera.animate()
+    # animation.save('embedded_lorenz.gif', writer = 'imagemagick')
 
     # Calculate time derivatives of eigen-timeseries
     filter_len = 7
@@ -171,12 +102,12 @@ if __name__ == '__main__':
     Vtilde = Vtilde[int((filter_len - 1) / 2):-int((filter_len - 1) / 2), :]
     dVtilde_dt = dVtilde_dt[int((filter_len - 1) / 2):-int((filter_len - 1) / 2), :]
 
-    # # plot eigen-timeseries
-    # plot_time_series(Vtilde, threshold=15)
-    # # plot eigen-timeseries time derivatives
-    # plot_time_series(dVtilde_dt, threshold=15)
-    # # plot eigen-spatial mode
-    # plot_time_series(Utilde, threshold=15)
+    # plot eigen-timeseries
+    plot_time_series(Vtilde, threshold=15)
+    # plot eigen-timeseries time derivatives
+    plot_time_series(dVtilde_dt, threshold=15)
+    # plot eigen-spatial mode
+    plot_time_series(Utilde, threshold=15)
 
     component_score = rank_forcing_component(Vtilde)
     print(component_score)
@@ -217,29 +148,44 @@ if __name__ == '__main__':
     # model = ps.SINDy()
     # model.fit(Vtilde[:1000, :-1], t=.01)
     # model.print()
+
     # linear regression:
     reg = linear_model.LinearRegression()
-    reg.fit(Vtilde[:10, :-1], dVtilde_dt[:10, :-1])
+    reg.fit(Vtilde[100:600, :-1], dVtilde_dt[100:600, :-1])
     A = reg.coef_
     fig, ax = plt.subplots()
     ax = sns.heatmap(A, center=0)
 
-    dVtilde_dt_pred = reg.predict(Vtilde[10:, :-1])
+    dVtilde_dt_pred = reg.predict(Vtilde[600:, :-1])
 
     fig, ax = plt.subplots()
     ax.plot(dVtilde_dt_pred[:, 0], alpha=0.6, c='k', linestyle='--', label="pred")
-    ax.plot(dVtilde_dt[10:, 0], alpha=0.6, lw=1, label="true")
+    ax.plot(dVtilde_dt[500:, 0], alpha=0.6, lw=1, label="true")
     ax.legend()
 
     # runge-kutta integration
-    n = Vtilde[1000:].shape[0]
-    y0 = Vtilde[1000-1][:-1]
-    y = np.zeros((n, len(y0)))
-    dt = 0.01
-    y[0] = y0
-    for i in range(n - 1):
-        y[i + 1] = y[i] + (dt) * dVtilde_dt[i]
+    y = first_order_kutta_runge(dx_dt=dVtilde_dt_pred, x=Vtilde, starting_point=600)
 
+    # plot the predicted 1st component
     fig, ax = plt.subplots()
-    ax.plot(y, alpha=0.6, lw=1, label="pred")
+    ax.plot(y.T[0], alpha=0.6, lw=1, label="pred")
     ax.legend()
+
+    # plot predicted projection
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.axes(projection="3d")
+    ax.grid(False)
+    ax.axis('off')
+    camera = Camera(fig)
+
+    for a, b, g in zip(np.linspace(0, 2 * np.pi, 360, endpoint=False),
+                       np.linspace(0, 2 * np.pi, 360, endpoint=False),
+                       np.linspace(0, 2 * np.pi, 360, endpoint=False)):
+        true = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ Vtilde.T[:3])
+        pred = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ (0.01 * y.T[:3]))
+        ax.plot(true[0], true[1], true[2], lw=0.1, c='b')
+        ax.plot(pred[0], pred[1], pred[2], lw=0.1, c='orange')
+        camera.snap()
+
+    animation = camera.animate()
+    # animation.save('oscillating_lorenz.gif', writer='imagemagick')
