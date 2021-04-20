@@ -10,7 +10,6 @@ from scipy.optimize import curve_fit
 from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 from celluloid import Camera
-from matplotlib import animation
 
 import pysindy as ps
 from sklearn import linear_model
@@ -20,12 +19,14 @@ from bout_import import load_filepaths, print_bout_keys
 
 if __name__ == "__main__":
 
-    # # visualise - lorenz dynamics
+    x = load_filepaths(specific_bout=8, bout_spacing=100, specific_segment=6)
+
+    # visualise - lorenz dynamics
     # fig = plt.figure()
-    # axes = plt.axes(projection="3d")
+    # axes = plt.axes()
     # camera = Camera(fig)
     # for i in range(1, len(x), 25):
-    #     axes.plot(x[:i], y[:i], z[:i], lw=0.1, color='blue')
+    #     axes.plot(x[:i], lw=0.1, color='blue')
     #     camera.snap()
     # animation = camera.animate()
     # # animation.save('lorenz.gif', writer = 'imagemagick')
@@ -41,11 +42,11 @@ if __name__ == "__main__":
     tau = svht(H, sv=sv)
     r = sum(sv > tau)
     print("rank:", r)
-    # fig, ax = plt.subplots()
-    # ax.scatter(range(1, len(sv) + 1), sv, s=5)
-    # ax.axhline(tau, c='r')
-    # ax.set_xlim([0.9, r + 3])
-    # ax.set_title("rank: " + r.astype(str))
+    fig, ax = plt.subplots()
+    ax.scatter(range(1, len(sv) + 1), sv, s=5)
+    ax.axhline(tau, c='r')
+    ax.set_xlim([0.9, r + 3])
+    ax.set_title("rank: " + r.astype(str))
 
     # set truncation
     Utilde = U[:, :r]
@@ -53,16 +54,25 @@ if __name__ == "__main__":
     Vtilde = Vh.conj().T[:, :r]
 
     # plot embedded attractor
-    fig = plt.figure()
+    # fig = plt.figure()
+    # ax = plt.axes(projection="3d")
+    # camera = Camera(fig)
+    #
+    # for i in range(1, len(x), 25):
+    #     ax.plot(Vtilde.T[0][:i], Vtilde.T[1][:i], Vtilde.T[5][:i], lw=0.1, color='blue')
+    #     camera.snap()
+    #
+    # animation = camera.animate()
+    # animation.save('SLC_space.gif', writer='imagemagick')
+
+
+    # plot predicted projection
+    fig = plt.figure(figsize=(10, 10))
     ax = plt.axes(projection="3d")
-    camera = Camera(fig)
+    ax.grid(False)
+    ax.axis('off')
+    ax.plot(Vtilde.T[0], Vtilde.T[1], Vtilde.T[4], lw=0.1)
 
-    for i in range(1, len(x), 25):
-        ax.plot(Vtilde.T[0][:i], Vtilde.T[1][:i], Vtilde.T[2][:i], lw=0.2, color='blue')
-        camera.snap()
-
-    animation = camera.animate()
-    # animation.save('embedded_lorenz.gif', writer = 'imagemagick')
 
     # Calculate time derivatives of eigen-timeseries
     filter_len = 7
@@ -74,27 +84,28 @@ if __name__ == "__main__":
     dVtilde_dt = dVtilde_dt[int((filter_len - 1) / 2):-int((filter_len - 1) / 2), :]
 
     # plot eigen-timeseries
-    plot_time_series(Vtilde, threshold=15)
+    plot_time_series(Vtilde, r=r, threshold=15)
     # plot eigen-timeseries time derivatives
-    plot_time_series(dVtilde_dt, threshold=15)
+    plot_time_series(dVtilde_dt, r=r, threshold=15)
     # plot eigen-spatial mode
-    plot_time_series(Utilde, threshold=15)
+    plot_time_series(Utilde, r=r, threshold=15)
 
-    component_score = rank_forcing_component(Vtilde)
-    print(component_score)
-
-    fig, axes = plt.subplots(np.sum(component_score.T[-1] >= 0))
-    for i, ax in zip(component_score.T[0][component_score.T[-1] >= 0].astype(int), axes):
-        real_x, real_y = calc_probability_distribution(Vtilde[:, i], n_bins=10)
-        gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
-
-        ax.plot(real_x, real_y, c='r', label="raw")
-        ax.plot(gauss_x, Gauss(gauss_x, *gauss_y), 'k--', label='gauss fit')
-        ax.set_yscale('log')
-        ax.set_ylim([10 ** -5, 1])
-        ax.legend()
+    # component_score = rank_forcing_component(Vtilde)
+    # print(component_score)
+    #
+    # fig, axes = plt.subplots(np.sum(component_score.T[-1] >= 0))
+    # for i, ax in zip(component_score.T[0][component_score.T[-1] >= 0].astype(int), axes):
+    #     real_x, real_y = calc_probability_distribution(Vtilde[:, i], n_bins=10)
+    #     gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
+    #
+    #     ax.plot(real_x, real_y, c='r', label="raw")
+    #     ax.plot(gauss_x, Gauss(gauss_x, *gauss_y), 'k--', label='gauss fit')
+    #     ax.set_yscale('log')
+    #     ax.set_ylim([10 ** -5, 1])
+    #     ax.legend()
 
     # mark regions along timeseries with intermittent forcing
+    real_x, real_y = calc_probability_distribution(Vtilde[:, -1], n_bins=10)
     counts, edges = np.histogram(Vtilde[:, -1], bins=10)
     gauss_x, gauss_y = fit_gauss(Vtilde[:, -1], n_bins=10)
     idx_intercepts = np.argsort(np.abs(real_y - Gauss(real_x, *gauss_y)))[1:3]
@@ -102,7 +113,7 @@ if __name__ == "__main__":
 
     # create masks for extreme values
     extremes = np.where((Vtilde[:, -1] < lower_bound) | (Vtilde[:, -1] > upper_bound))
-    mx = np.ma.masked_array(Vtilde[:, 0], mask=[(Vtilde[:, -1] < lower_bound) | (Vtilde[:, -1] > upper_bound)])
+    mx = np.ma.masked_array(Vtilde[:, 0], mask=[(Vtilde[:, -1] > lower_bound) & (Vtilde[:, -1] < upper_bound)])
 
     # plot regions
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
@@ -143,19 +154,19 @@ if __name__ == "__main__":
     ax.legend()
 
     # plot predicted projection
-    fig = plt.figure(figsize=(10, 10))
-    ax = plt.axes(projection="3d")
-    ax.grid(False)
-    ax.axis('off')
-    camera = Camera(fig)
+    # fig = plt.figure(figsize=(10, 10))
+    # ax = plt.axes(projection="3d")
+    # ax.grid(False)
+    # ax.axis('off')
+    # camera = Camera(fig)
+    #
+    # for a, b, g in zip(np.linspace(0, 2 * np.pi, 360, endpoint=False),
+    #                    np.linspace(0, 2 * np.pi, 360, endpoint=False),
+    #                    np.linspace(0, 2 * np.pi, 360, endpoint=False)):
+    #     true = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ Vtilde.T[:3])
+    #     pred = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ (0.01 * y.T[:3]))
+    #     ax.plot(true[0], true[1], true[2], lw=0.1, c='b')
+    #     ax.plot(pred[0], pred[1], pred[2], lw=0.1, c='orange')
+    #     camera.snap()
 
-    for a, b, g in zip(np.linspace(0, 2 * np.pi, 360, endpoint=False),
-                       np.linspace(0, 2 * np.pi, 360, endpoint=False),
-                       np.linspace(0, 2 * np.pi, 360, endpoint=False)):
-        true = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ Vtilde.T[:3])
-        pred = np.asarray(Rx(a) @ Ry(2 * b * a) @ Rx(g * g) @ (0.01 * y.T[:3]))
-        ax.plot(true[0], true[1], true[2], lw=0.1, c='b')
-        ax.plot(pred[0], pred[1], pred[2], lw=0.1, c='orange')
-        camera.snap()
-
-    animation = camera.animate()
+    # animation = camera.animate()

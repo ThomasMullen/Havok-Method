@@ -54,11 +54,11 @@ def first_order_kutta_runge(dx_dt, x, starting_point):
     return y
 
 
-def plot_time_series(timeseries, threshold=15):
+def plot_time_series(timeseries, r, threshold=15):
     if timeseries.shape[0] < timeseries.shape[1]:
         timeseries = timeseries.T
     if r > threshold:
-        fig, axes = plt.subplots(threshold, 1, figsize=(10, 10))
+        fig, axes = plt.subplots(threshold, 1, figsize=(10, 10), sharex=True)
         for i, ax in zip(range(threshold - 1), axes):
             ax.plot(timeseries[:, i], alpha=0.6, lw=1, label=str(i))
         axes[int(threshold - 1)].plot(timeseries[:, -1], alpha=0.6, lw=1, label='r')

@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from pydmd import DMD, MrDMD
 from numpy import linalg as LA
 from scipy.integrate import odeint
 from scipy.linalg import hankel, svd, svdvals
