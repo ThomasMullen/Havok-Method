@@ -87,16 +87,21 @@ def rank_forcing_component(timeseries):
             gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
             idx_intercepts = np.argsort(np.abs(real_y - Gauss(real_x, *gauss_y)))[1:3]
         except:
+            # fail to fit gaussian
             print("failed with component", i)
+            # label with -1
             vals[i] = [i, -1]
             continue
 
+        # label timeseries which lack extreme tails
         if np.std(real_y - Gauss(real_x, *gauss_y)) > 0.001:
             vals[i] = [i, 0]
             continue
 
         print("V"+str(i)+"<", np.min(real_x[idx_intercepts]), "V"+str(i)+">", np.max(real_x[idx_intercepts]))
-        proportion_extreme_vals = np.sum([(timeseries[:, i] < np.min(real_x[idx_intercepts])) | (timeseries[:, i] > np.max(real_x[idx_intercepts]))])/timeseries.shape[0]
+        proportion_extreme_vals = np.sum([(timeseries[:, i] < np.min(real_x[idx_intercepts])) |
+                                          (timeseries[:, i] > np.max(real_x[idx_intercepts]))]
+                                         )/timeseries.shape[0]
         vals[i] = [i, proportion_extreme_vals]
     return vals
 
@@ -176,7 +181,6 @@ if __name__ == '__main__':
     for i, ax in zip(component_score.T[0][component_score.T[-1]>=0].astype(int), axes):
         real_x, real_y = calc_probability_distribution(Vtilde[:, i], n_bins=10)
         gauss_x, gauss_y = fit_gauss(Vtilde[:, i], n_bins=10)
-        # idx_intercepts = np.argsort(np.abs(real_y - Gauss(real_x, *gauss_y)))[1:3]
 
         ax.plot(real_x, real_y, c='r', label="raw")
         ax.plot(gauss_x, Gauss(gauss_x, *gauss_y), 'k--', label='gauss fit')
@@ -184,7 +188,24 @@ if __name__ == '__main__':
         ax.set_ylim([10 ** -5, 1])
         ax.legend()
 
-    # print("Vr<", np.min(real_x[idx_intercepts]), "Vr>", np.max(real_x[idx_intercepts]))
-    # extremes = np.where((Vtilde[:, -1] < np.min(real_x[idx_intercepts])) | (Vtilde[:, -1] > np.max(real_x[idx_intercepts])))
-    # proportion_extreme_vals = np.sum([(Vtilde[:, -1] < np.min(real_x[idx_intercepts])) | (Vtilde[:, -1] > np.max(real_x[idx_intercepts]))])/Vtilde.shape[0]
+    # mark regions along timeseries with intermittent forcing
+    counts, edges = np.histogram(Vtilde[:, -1], bins=10)
+    gauss_x, gauss_y = fit_gauss(Vtilde[:, -1], n_bins=10)
+    idx_intercepts = np.argsort(np.abs(real_y - Gauss(real_x, *gauss_y)))[1:3]
+    upper_bound, lower_bound = np.max(edges[idx_intercepts]), np.min(edges[idx_intercepts])
+
+    # create masks for extreme values
+    extremes = np.where((Vtilde[:, -1] < lower_bound) | (Vtilde[:, -1] > upper_bound))
+    mx = np.ma.masked_array(Vtilde[:, 0], mask=[(Vtilde[:, -1] < lower_bound) | (Vtilde[:, -1] > upper_bound)])
+
+    # plot regions
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    ax1.plot(Vtilde[:, 0], alpha=0.6, lw=1, label=str(1))
+    ax1.plot(mx, alpha=1, lw=1, label='xtr', c='r')
+    # ax1.scatter(extremes, np.repeat(0, len(extremes[0])), s=2, c='r', label='crit')
+    ax1.legend()
+
+    ax2.plot(Vtilde[:, -1], alpha=0.6, lw=1, label='r')
+    ax2.scatter(extremes, np.repeat(0, len(extremes[0])), s=2, c='r', label='crit')
+    ax2.legend()
 
