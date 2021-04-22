@@ -12,7 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from celluloid import Camera
 
 import pysindy as ps
-from sklearn import linear_model
+# from sklearn import linear_model
 
 from utils import *
 from bout_import import load_filepaths, print_bout_keys
@@ -132,26 +132,30 @@ if __name__ == "__main__":
     # model.print()
 
     # linear regression:
-    reg = linear_model.LinearRegression()
-    reg.fit(Vtilde[100:600, :-1], dVtilde_dt[100:600, :-1])
-    A = reg.coef_
-    fig, ax = plt.subplots()
-    ax = sns.heatmap(A, center=0)
+    # reg = linear_model.LinearRegression()
+    # reg.fit(Vtilde[100:600, :-1], dVtilde_dt[100:600, :-1])
+    # A = reg.coef_
+    # fig, ax = plt.subplots()
+    # ax = sns.heatmap(A, center=0)
+    #
+    # dVtilde_dt_pred = reg.predict(Vtilde[600:, :-1])
 
-    dVtilde_dt_pred = reg.predict(Vtilde[600:, :-1])
-
-    fig, ax = plt.subplots()
-    ax.plot(dVtilde_dt_pred[:, 0], alpha=0.6, c='k', linestyle='--', label="pred")
-    ax.plot(dVtilde_dt[500:, 0], alpha=0.6, lw=1, label="true")
-    ax.legend()
-
-    # runge-kutta integration
-    y = first_order_kutta_runge(dx_dt=dVtilde_dt_pred, x=Vtilde, starting_point=600)
-
-    # plot the predicted 1st component
-    fig, ax = plt.subplots()
-    ax.plot(y.T[0], alpha=0.6, lw=1, label="pred")
-    ax.legend()
+    model = ps.SINDy()
+    model.fit(Vtilde, t=0.01)
+    model.print()
+    #
+    # fig, ax = plt.subplots()
+    # ax.plot(dVtilde_dt_pred[:, 0], alpha=0.6, c='k', linestyle='--', label="pred")
+    # ax.plot(dVtilde_dt[500:, 0], alpha=0.6, lw=1, label="true")
+    # ax.legend()
+    #
+    # # runge-kutta integration
+    # y = first_order_kutta_runge(dx_dt=dVtilde_dt_pred, x=Vtilde, starting_point=600)
+    #
+    # # plot the predicted 1st component
+    # fig, ax = plt.subplots()
+    # ax.plot(y.T[0], alpha=0.6, lw=1, label="pred")
+    # ax.legend()
 
     # plot predicted projection
     # fig = plt.figure(figsize=(10, 10))
