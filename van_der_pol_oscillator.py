@@ -11,8 +11,8 @@ from utils import *
 
 def van_der_pol(current_state, t):
     # define the system parameters sigma, rho, and beta
-    mu = 0.05
-    # mu = 0.8
+    # mu = 0.05
+    mu = 0.8
     # positions of x, y, z in space at the current time point
     x, y = current_state
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     ax.plot(x, y, lw=0.5)
 
     # Generate hankel matrix with 20 time embedding
-    H = generate_hankel_matrix(x, time_embedding=35)
+    H = generate_hankel_matrix(x, time_embedding=100)
 
     # Apply SVD
     U, sv, Vh = LA.svd(H, full_matrices=0)

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import hankel, svd, svdvals
 from scipy.special import binom
 from scipy.optimize import curve_fit
+import numpy.linalg as LA
 
 
 def generate_hankel_matrix(timeseries, time_embedding):
@@ -122,6 +123,35 @@ def rank_forcing_component(timeseries):
                                          ) / timeseries.shape[0]
         vals[i] = [i, proportion_extreme_vals]
     return vals
+
+
+def dmd(X, Y, truncate=None):
+    if truncate == 0:
+        # return empty vectors
+        mu = np.array([], dtype='complex')
+        Phi = np.zeros([X.shape[0], 0], dtype='complex')
+    else:
+        U2,Sig2,Vh2 = svd(X, False) # SVD of input matrix
+        r = len(Sig2) if truncate is None else truncate # rank truncation
+        U = U2[:,:r]
+        Sig = np.diag(Sig2)[:r,:r]
+        V = Vh2.conj().T[:,:r]
+        Atil = U.conj().T.dot(Y).dot(V).dot(LA.inv(Sig)) # build A tilde
+        mu,W = LA.eig(Atil)
+        Phi = Y.dot(V).dot(LA.inv(Sig)).dot(W) # build DMD modes
+    return mu, Phi
+
+
+def calc_psi(X, mu, Phi):
+    # compute time evolution
+    b = np.dot(LA.pinv(Phi), X[:, 0])
+    Vand = np.vander(mu, np.max(X.shape), True)
+    Psi = (Vand.T * b).T
+    return Psi
+
+
+def reconstruct_signal(Phi, Psi):
+    return np.dot(Phi, Psi)
 
 
 # rotations
