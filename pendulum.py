@@ -9,16 +9,13 @@ from scipy.fft import fft, fftfreq
 from utils import *
 
 
-def van_der_pol(current_state, t):
-    # define the system parameters sigma, rho, and beta
-    # mu = 0.05
-    mu = 0.8
+def lotka_volterra(current_state, t):
     # positions of x, y, z in space at the current time point
     x, y = current_state
 
     # define the 3 ordinary differential equations known as the lorenz equations
     dx_dt = y
-    dy_dt = -x -mu * (x**2 - 1) * y
+    dy_dt = -np.sin(x)
 
     # return a list of the equations that describe the system
     return [dx_dt, dy_dt]
@@ -32,8 +29,8 @@ def generate_time_steps(start_time=0, end_time=100, dt=100):
 if __name__ == "__main__":
     # generate data
     dt = 1/10
-    initial_state = [0, 0.001]
-    xy = odeint(van_der_pol, initial_state, generate_time_steps(0, 1000, int(1/dt)))
+    initial_state = [0.3, 0.5]
+    xy = odeint(lotka_volterra, initial_state, generate_time_steps(0, 1000, int(1/dt)))
     x = xy[:, 0]
     y = xy[:, 1]
 
@@ -42,7 +39,7 @@ if __name__ == "__main__":
     ax.plot(x, y, lw=0.5)
 
     # Generate hankel matrix with 20 time embedding
-    H = generate_hankel_matrix(x, time_embedding=3)
+    H = generate_hankel_matrix(x, time_embedding=20)
 
     # Apply SVD
     U, sv, Vh = LA.svd(H, full_matrices=0)
@@ -66,7 +63,7 @@ if __name__ == "__main__":
     # plot embedding
     fig = plt.figure()
     ax = plt.axes(projection="3d")
-    ax.plot(Vtilde.T[0], Vtilde.T[1],Vtilde.T[2], lw=0.2, color='blue')
+    ax.plot(Vtilde.T[0], Vtilde.T[1], Vtilde.T[2], lw=0.2, color='blue')
 
     # Calculate time derivatives of eigen-timeseries
     filter_len = 7
@@ -108,10 +105,11 @@ if __name__ == "__main__":
     ax.plot(np.dot(A, Vtilde.T)[0])
     ax.plot(Vtilde[1:].T[0])
 
-    # plot prediction
-    fig, ax = plt.subplots()
-    ax.plot(np.dot(A, Vtilde.T)[0])
-    ax.plot(Vtilde[1:].T[0])
-
     # calculate the forcing term
     F = Vtilde[1:].T - np.dot(A, Vtilde[:-1].T)
+
+    mu, Phi = dmd(Vtilde[:-1].T, Vtilde[1:].T)
+
+    Psi = calc_psi(Vtilde[:-1].T, mu, Phi)
+
+    reconstruct_signal(Phi, Psi)
