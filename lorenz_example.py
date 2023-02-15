@@ -91,7 +91,7 @@ if __name__ == '__main__':
         camera.snap()
 
     animation = camera.animate()
-    # animation.save('embedded_lorenz.gif', writer = 'imagemagick')
+    animation.save('embedded_lorenz_test.gif', writer = 'imagemagick')
 
     # Calculate time derivatives of eigen-timeseries
     filter_len = 7
@@ -103,11 +103,11 @@ if __name__ == '__main__':
     dVtilde_dt = dVtilde_dt[int((filter_len - 1) / 2):-int((filter_len - 1) / 2), :]
 
     # plot eigen-timeseries
-    plot_time_series(Vtilde, threshold=15)
+    plot_time_series(Vtilde, threshold=15, r=r)
     # plot eigen-timeseries time derivatives
-    plot_time_series(dVtilde_dt, threshold=15)
+    plot_time_series(dVtilde_dt, threshold=15, r=r)
     # plot eigen-spatial mode
-    plot_time_series(Utilde, threshold=15)
+    plot_time_series(Utilde, threshold=15, r=r)
 
     component_score = rank_forcing_component(Vtilde)
     print(component_score)
@@ -122,6 +122,7 @@ if __name__ == '__main__':
         ax.set_yscale('log')
         ax.set_ylim([10 ** -5, 1])
         ax.legend()
+    plt.show()
 
     # mark regions along timeseries with intermittent forcing
     counts, edges = np.histogram(Vtilde[:, -1], bins=10)
@@ -143,6 +144,7 @@ if __name__ == '__main__':
     ax2.plot(Vtilde[:, -1], alpha=0.6, lw=1, label='r')
     ax2.scatter(extremes, np.repeat(0, len(extremes[0])), s=2, c='r', label='crit')
     ax2.legend()
+    plt.show()
 
     # fit Koopman operator
     # model = ps.SINDy()
@@ -155,6 +157,7 @@ if __name__ == '__main__':
     A = reg.coef_
     fig, ax = plt.subplots()
     ax = sns.heatmap(A, center=0)
+    plt.show()
 
     dVtilde_dt_pred = reg.predict(Vtilde[600:, :-1])
 
@@ -162,6 +165,7 @@ if __name__ == '__main__':
     ax.plot(dVtilde_dt_pred[:, 0], alpha=0.6, c='k', linestyle='--', label="pred")
     ax.plot(dVtilde_dt[500:, 0], alpha=0.6, lw=1, label="true")
     ax.legend()
+    plt.show()
 
     # runge-kutta integration
     y = first_order_kutta_runge(dx_dt=dVtilde_dt_pred, x=Vtilde, starting_point=600)
@@ -170,6 +174,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax.plot(y.T[0], alpha=0.6, lw=1, label="pred")
     ax.legend()
+    plt.show()
 
     # plot predicted projection
     fig = plt.figure(figsize=(10, 10))
@@ -188,4 +193,4 @@ if __name__ == '__main__':
         camera.snap()
 
     animation = camera.animate()
-    # animation.save('oscillating_lorenz.gif', writer='imagemagick')
+    animation.save('oscillating_lorenz_test2.gif', writer='imagemagick')
